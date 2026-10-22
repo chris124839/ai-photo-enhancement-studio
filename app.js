@@ -36,5 +36,37 @@
   $('clearLibraryBtn').onclick=async()=>{if(!confirm('Delete all saved copies from this browser? This cannot be undone.'))return;const db=await openDB();await new Promise((res,rej)=>{const tx=db.transaction('photos','readwrite');tx.objectStore('photos').clear();tx.oncomplete=res;tx.onerror=()=>rej(tx.error)});db.close();await renderLibrary();toast('Local library cleared.')};
   document.querySelectorAll('.nav').forEach(btn=>btn.onclick=async()=>{document.querySelectorAll('.nav').forEach(b=>b.classList.toggle('active',b===btn));const lib=btn.dataset.tab==='library';$('editorView').hidden=lib;$('libraryView').hidden=!lib;$('pageTitle').textContent=lib?'Local library':'Photo editor';if(lib)await renderLibrary()});
   function renderThumbs(){$('thumbs').innerHTML='';state.files.forEach((item,i)=>{const b=document.createElement('button');b.className='thumb'+(i===state.active?' selected':'');b.onclick=()=>selectPhoto(i);const im=document.createElement('img');im.src=item.url;im.alt='';const s=document.createElement('span');s.textContent=item.name;b.append(im,s);$('thumbs').append(b)})}
+
+  // Replicate-powered AI denoising is handled by a server endpoint so the API token is never exposed in the browser.
+  $('denoiseBtn').onclick = async () => {
+    if (!state.original || state.active < 0) return toast('Choose a photo first.');
+    const btn = $('denoiseBtn'), status = $('aiStatus');
+    btn.disabled = true; btn.textContent = 'Processing…'; status.textContent = 'Preparing a copy and sending it for AI noise reduction…';
+    try {
+      const item = state.files[state.active];
+      const sourceCanvas = document.createElement('canvas');
+      sourceCanvas.width = state.original.naturalWidth; sourceCanvas.height = state.original.naturalHeight;
+      sourceCanvas.getContext('2d').drawImage(state.original, 0, 0);
+      const sourceBlob = await new Promise((resolve, reject) => sourceCanvas.toBlob(b => b ? resolve(b) : reject(new Error('Could not prepare image.')), 'image/jpeg', .92));
+      if (sourceBlob.size > 4 * 1024 * 1024) throw new Error('This image is over 4 MB. Export a smaller copy first, or configure direct file uploads for larger images.');
+      const dataUrl = await new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = reject; reader.readAsDataURL(sourceBlob); });
+      const response = await fetch('/api/replicate-denoise', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ image: dataUrl, noise: Number($('denoiseLevel').value) }) });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || 'AI restoration failed.');
+      const resultUrl = payload.output;
+      if (!resultUrl) throw new Error('The AI model did not return an output image.');
+      const result = await loadImage(await (async()=>{const r=await fetch(resultUrl);if(!r.ok)throw new Error('Could not retrieve the restored image.');return new File([await r.blob()], safeName(item.name.replace(/\.[^.]+$/,'')+'-ai-denoised.png'), {type:'image/png'})})());
+      // Keep original separate; replace only the active edit preview with a new AI-restored working source.
+      item.aiRestored = result.img; item.aiRestoredUrl = result.url; state.original = result.img;
+      $('originalImg').src = item.url;
+      settings = defaults(); syncControls(); persistSettings(); drawEdited();
+      status.textContent = 'AI denoising complete. Compare against the original and download when satisfied.';
+      toast('AI denoising finished. Review the result before saving.');
+    } catch (err) {
+      status.textContent = err.message;
+      toast(err.message);
+    } finally { btn.disabled = false; btn.textContent = '✦ Remove grain & noise'; }
+  };
+
   renderLibrary();
 })();
