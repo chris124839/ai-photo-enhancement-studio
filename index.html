@@ -9,7 +9,7 @@
   <aside class="sidebar">
     <a class="brand" href="#"><span class="brand-mark">s</span><span>stillroom<small>PHOTO STUDIO</small></span></a>
     <div class="side-label">WORKSPACE</div><button class="nav active" data-tab="editor">◫ <span>Photo editor</span></button><button class="nav" data-tab="library">▦ <span>Local library</span><b id="libraryCount">0</b></button>
-    <div class="side-bottom"><div class="privacy-icon">◉</div><strong>Private by design</strong><p>Your photos stay in this browser. Nothing is uploaded to a server by this starter app.</p><span class="privacy-pill">LOCAL PROCESSING</span></div>
+    <div class="side-bottom"><div class="privacy-icon">◉</div><strong>Private by design</strong><p>Manual edits and saved copies stay in this browser. AI tools send a copy to Replicate when enabled.</p><span class="privacy-pill">LOCAL PROCESSING</span></div>
   </aside>
   <main class="main">
     <header class="topbar"><div><div class="eyebrow">YOUR PERSONAL DARKROOM</div><h1 id="pageTitle">Photo editor</h1></div><div class="top-actions"><span class="status"><i></i> Ready to edit</span><button class="btn btn-quiet" id="openBtn">＋ Add photos</button></div></header>
@@ -38,12 +38,12 @@
               <p class="note">Reduce visible grain, sensor noise and JPEG artifacts with an AI restoration model. This sends the selected image to Replicate for processing when configured.</p>
               <label class="range-row"><span>Denoise strength</span><select id="denoiseLevel"><option value="5">Light — preserve texture</option><option value="15" selected>Balanced — recommended</option><option value="25">Strong — smoother result</option></select></label>
               <button class="btn btn-accent ai-run-btn" id="denoiseBtn">✦ Remove grain & noise</button>
-              <p class="note" id="aiStatus" aria-live="polite">AI restoration requires the Vercel API deployment and a Replicate token.</p>
+              <p class="note" id="aiStatus" aria-live="polite">AI restoration needs the Vercel API deployment and a Replicate token. Cloud processing sends a copy of your photo to Replicate.</p>
             </div>
             <div class="control-section"><div class="section-title">DETAIL & EXPORT</div>
               <label class="range-row"><span>Sharpness <output id="sharpnessOut">0</output></span><input type="range" id="sharpness" min="0" max="30" value="0"></label>
               <label class="range-row"><span>Upscale output</span><select id="scale"><option value="1">Original size (1×)</option><option value="1.5">1.5× larger</option><option value="2">2× larger</option><option value="3">3× larger</option></select></label>
-              <p class="note">Upscaling here uses high-quality browser resampling, not a generative AI model. For stronger AI super-resolution, use an optional local tool such as Upscayl after export.</p>
+              <p class="note">Browser resampling works offline. AI upscale uses Replicate cloud processing and may incur usage charges.</p><button class="btn btn-accent ai-run-btn" id="upscaleAiBtn">✦ AI upscale 2×</button>
             </div>
             <div class="save-actions"><button class="btn btn-quiet" id="saveLocalBtn">▣ Save to library</button><button class="btn btn-dark" id="downloadBtn">Download edited ↗</button></div>
           </aside>
