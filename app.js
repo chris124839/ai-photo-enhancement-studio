@@ -1,6 +1,6 @@
 (() => {
   const $ = id => document.getElementById(id);
-  const state = { files: [], active: -1, original: null, bitmap: null, imageData: null, editedUrl: null, library: [] };
+  const state = { files: [], active: -1, original: null, workingImage: null, bitmap: null, imageData: null, editedUrl: null, library: [] };
   const ids = ['exposure','contrast','highlights','shadows','warmth','saturation','sharpness'];
   const labels = {exposure:'Exposure',contrast:'Contrast',highlights:'Highlights',shadows:'Shadows',warmth:'Warmth',saturation:'Saturation',sharpness:'Sharpness'};
   const defaults = () => ({exposure:0,contrast:0,highlights:0,shadows:0,warmth:0,saturation:0,sharpness:0});
@@ -13,23 +13,23 @@
   const drop=$('emptyState');
   document.addEventListener('dragover',e=>{e.preventDefault();drop.classList.add('dragging')});document.addEventListener('dragleave',()=>drop.classList.remove('dragging'));document.addEventListener('drop',async e=>{e.preventDefault();drop.classList.remove('dragging');await addFiles([...e.dataTransfer.files].filter(f=>f.type.startsWith('image/')))})
   async function addFiles(files){if(!files.length)return;for(const file of files){if(!file.type.startsWith('image/'))continue;try{const {img,url}=await loadImage(file);state.files.push({file,img,url,name:file.name,settings:defaults()})}catch(err){toast(err.message)}}if(state.files.length){$('emptyState').hidden=true;$('workspace').hidden=false;selectPhoto(state.files.length-1);renderThumbs();toast(`${files.length} photo${files.length===1?'':'s'} added to this session`)}}
-  function selectPhoto(index){if(index<0||index>=state.files.length)return;state.active=index;const item=state.files[index];state.original=item.img;settings={...item.settings};$('imageName').textContent=item.name;$('originalImg').src=item.url;$('dimensions').textContent=`${item.img.naturalWidth} × ${item.img.naturalHeight} px`;$('zoomLabel').textContent='100% · drag slider to compare';$('compareRange').value=50;syncControls();renderThumbs();drawEdited()}
+  function selectPhoto(index){if(index<0||index>=state.files.length)return;state.active=index;const item=state.files[index];state.original=item.img;state.workingImage=item.aiRestored||item.img;settings={...item.settings};$('imageName').textContent=item.name;$('originalImg').src=item.url;$('dimensions').textContent=`${item.img.naturalWidth} × ${item.img.naturalHeight} px`;$('zoomLabel').textContent='100% · drag slider to compare';$('compareRange').value=50;syncControls();renderThumbs();drawEdited()}
   function syncControls(){ids.forEach(id=>{const el=$(id);el.value=settings[id];$(id+'Out').textContent=(settings[id]>0?'+':'')+settings[id]})}
   ids.forEach(id=>$(id).addEventListener('input',()=>{settings[id]=Number($(id).value);$(id+'Out').textContent=(settings[id]>0?'+':'')+settings[id];persistSettings();drawEdited()}));
   function persistSettings(){if(state.active>=0)state.files[state.active].settings={...settings}}
   function reset(which){const groups={light:['exposure','contrast','highlights','shadows'],colour:['warmth','saturation'],all:ids};(groups[which]||ids).forEach(k=>settings[k]=0);syncControls();persistSettings();drawEdited()}
   $('resetBtn').onclick=()=>reset('all');document.querySelectorAll('[data-reset]').forEach(b=>b.onclick=()=>reset(b.dataset.reset));
-  $('autoBtn').onclick=()=>{if(!state.original)return toast('Choose a photo first.');const c=document.createElement('canvas'),max=180;c.width=Math.min(max,state.original.naturalWidth);c.height=Math.max(1,Math.round(c.width*state.original.naturalHeight/state.original.naturalWidth));const ctx=c.getContext('2d',{willReadFrequently:true});ctx.drawImage(state.original,0,0,c.width,c.height);const d=ctx.getImageData(0,0,c.width,c.height).data;let lum=0,hi=0,lo=0,r=0,b=0,n=d.length/4;for(let i=0;i<d.length;i+=4){const l=.2126*d[i]+.7152*d[i+1]+.0722*d[i+2];lum+=l;if(l>220)hi++;if(l<55)lo++;r+=d[i];b+=d[i+2]}lum/=n;const exposure=Math.max(-18,Math.min(22,Math.round((128-lum)/7)));settings={exposure,contrast:Math.round((hi/n>.18?-5:lo/n>.28?7:3)),highlights:Math.round(-Math.min(22,hi/n*38)),shadows:Math.round(Math.min(22,lo/n*34)),warmth:Math.max(-5,Math.min(5,Math.round((b-r)/n/14))),saturation:2,sharpness:4};syncControls();persistSettings();drawEdited();toast('A gentle, image-based starting point has been applied. Fine-tune to taste.')};
+  $('autoBtn').onclick=()=>{if(!state.workingImage)return toast('Choose a photo first.');const c=document.createElement('canvas'),max=180;c.width=Math.min(max,state.workingImage.naturalWidth);c.height=Math.max(1,Math.round(c.width*state.workingImage.naturalHeight/state.workingImage.naturalWidth));const ctx=c.getContext('2d',{willReadFrequently:true});ctx.drawImage(state.workingImage,0,0,c.width,c.height);const d=ctx.getImageData(0,0,c.width,c.height).data;let lum=0,hi=0,lo=0,r=0,b=0,n=d.length/4;for(let i=0;i<d.length;i+=4){const l=.2126*d[i]+.7152*d[i+1]+.0722*d[i+2];lum+=l;if(l>220)hi++;if(l<55)lo++;r+=d[i];b+=d[i+2]}lum/=n;const exposure=Math.max(-18,Math.min(22,Math.round((128-lum)/7)));settings={exposure,contrast:Math.round((hi/n>.18?-5:lo/n>.28?7:3)),highlights:Math.round(-Math.min(22,hi/n*38)),shadows:Math.round(Math.min(22,lo/n*34)),warmth:Math.max(-5,Math.min(5,Math.round((b-r)/n/14))),saturation:2,sharpness:4};syncControls();persistSettings();drawEdited();toast('A gentle, image-based starting point has been applied. Fine-tune to taste.')};
   function clamp(v){return Math.max(0,Math.min(255,v))}
   function renderPixels(sourceCanvas){const ctx=sourceCanvas.getContext('2d',{willReadFrequently:true}),w=sourceCanvas.width,h=sourceCanvas.height,im=ctx.getImageData(0,0,w,h),d=im.data;const exp=Math.pow(2,settings.exposure/25),contrast=1+settings.contrast/100,sat=1+settings.saturation/100,warm=settings.warmth*1.05,high=settings.highlights/100,shadow=settings.shadows/100;for(let i=0;i<d.length;i+=4){let r=d[i]*exp,g=d[i+1]*exp,b=d[i+2]*exp;const l=.2126*r+.7152*g+.0722*b;const hi=Math.max(0,(l-150)/105),lo=Math.max(0,(125-l)/125);r+=(-high*hi*35)+(shadow*lo*35)+warm;g+=(-high*hi*25)+(shadow*lo*25);b+=(-high*hi*20)+(shadow*lo*20)-warm;r=(r-128)*contrast+128;g=(g-128)*contrast+128;b=(b-128)*contrast+128;const gray=.2126*r+.7152*g+.0722*b;r=gray+(r-gray)*sat;g=gray+(g-gray)*sat;b=gray+(b-gray)*sat;d[i]=clamp(r);d[i+1]=clamp(g);d[i+2]=clamp(b)}ctx.putImageData(im,0,0);if(settings.sharpness>0){const amount=settings.sharpness/100,src=ctx.getImageData(0,0,w,h),s=src.data,out=new Uint8ClampedArray(s);for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){const p=(y*w+x)*4;for(let ch=0;ch<3;ch++){const blur=(s[p-4+ch]+s[p+4+ch]+s[p-w*4+ch]+s[p+w*4+ch])/4;out[p+ch]=clamp(s[p+ch]+(s[p+ch]-blur)*amount*2)}}src.data.set(out);ctx.putImageData(src,0,0)}return sourceCanvas}
-  function drawEdited(){if(!state.original)return;const canvas=$('editedCanvas'),stage=$('compareStage');const maxW=Math.max(320,stage.clientWidth||700),maxH=Math.max(250,stage.clientHeight||600),scale=Math.min(1,maxW/state.original.naturalWidth,maxH/state.original.naturalHeight);canvas.width=Math.max(1,Math.round(state.original.naturalWidth*scale));canvas.height=Math.max(1,Math.round(state.original.naturalHeight*scale));const ctx=canvas.getContext('2d',{willReadFrequently:true});ctx.drawImage(state.original,0,0,canvas.width,canvas.height);renderPixels(canvas);const pct=Number($('compareRange').value);$('afterLayer').style.clipPath=`inset(0 ${100-pct}% 0 0)`;$('compareDivider').style.left=pct+'%';}
+  function drawEdited(){if(!state.workingImage)return;const canvas=$('editedCanvas'),stage=$('compareStage');const maxW=Math.max(320,stage.clientWidth||700),maxH=Math.max(250,stage.clientHeight||600),scale=Math.min(1,maxW/state.workingImage.naturalWidth,maxH/state.workingImage.naturalHeight);canvas.width=Math.max(1,Math.round(state.workingImage.naturalWidth*scale));canvas.height=Math.max(1,Math.round(state.workingImage.naturalHeight*scale));const ctx=canvas.getContext('2d',{willReadFrequently:true});ctx.drawImage(state.workingImage,0,0,canvas.width,canvas.height);renderPixels(canvas);const pct=Number($('compareRange').value);$('afterLayer').style.clipPath=`inset(0 ${100-pct}% 0 0)`;$('compareDivider').style.left=pct+'%';}
   $('compareRange').addEventListener('input',()=>{const p=Number($('compareRange').value);$('afterLayer').style.clipPath=`inset(0 ${100-p}% 0 0)`;$('compareDivider').style.left=p+'%'})
-  $('fitBtn').onclick=()=>{$('compareStage').scrollIntoView({behavior:'smooth',block:'nearest'});toast('Preview fitted to the workspace.')};window.addEventListener('resize',()=>{if(state.original)drawEdited()});
-  function fullSizeCanvas(multiplier=1){if(!state.original)throw new Error('Choose a photo first.');const w=Math.round(state.original.naturalWidth*multiplier),h=Math.round(state.original.naturalHeight*multiplier);if(w*h>65000000)throw new Error('That output is too large for this browser. Choose a lower upscale factor.');const c=document.createElement('canvas');c.width=w;c.height=h;const ctx=c.getContext('2d',{willReadFrequently:true});ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';ctx.drawImage(state.original,0,0,w,h);return renderPixels(c)}
+  $('fitBtn').onclick=()=>{$('compareStage').scrollIntoView({behavior:'smooth',block:'nearest'});toast('Preview fitted to the workspace.')};window.addEventListener('resize',()=>{if(state.workingImage)drawEdited()});
+  function fullSizeCanvas(multiplier=1){if(!state.workingImage)throw new Error('Choose a photo first.');const w=Math.round(state.workingImage.naturalWidth*multiplier),h=Math.round(state.workingImage.naturalHeight*multiplier);if(w*h>65000000)throw new Error('That output is too large for this browser. Choose a lower upscale factor.');const c=document.createElement('canvas');c.width=w;c.height=h;const ctx=c.getContext('2d',{willReadFrequently:true});ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';ctx.drawImage(state.workingImage,0,0,w,h);return renderPixels(c)}
   async function exportBlob(){const c=fullSizeCanvas(Number($('scale').value));return new Promise(resolve=>c.toBlob(resolve,'image/jpeg',.94))}
   $('downloadBtn').onclick=async()=>{try{const blob=await exportBlob();if(!blob)throw new Error('Export failed.');const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=safeName(state.files[state.active].name.replace(/\.[^.]+$/,''))+'-edited.jpg';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000);toast('Edited copy downloaded. Original remains unchanged.')}catch(e){toast(e.message)}};
   function openDB(){return new Promise((resolve,reject)=>{const req=indexedDB.open('stillroom-photo-library',1);req.onupgradeneeded=()=>{const db=req.result;if(!db.objectStoreNames.contains('photos'))db.createObjectStore('photos',{keyPath:'id',autoIncrement:true})};req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)})}
-  async function saveLibrary(){if(!state.original)return toast('Choose a photo first.');try{const blob=await exportBlob();const db=await openDB();const item={name:safeName(state.files[state.active].name),blob,createdAt:new Date().toISOString(),width:Math.round(state.original.naturalWidth*Number($('scale').value)),height:Math.round(state.original.naturalHeight*Number($('scale').value)),settings:{...settings}};await new Promise((res,rej)=>{const tx=db.transaction('photos','readwrite');tx.objectStore('photos').add(item);tx.oncomplete=res;tx.onerror=()=>rej(tx.error)});db.close();await renderLibrary();toast('Edited copy saved on this device.')}catch(e){toast('Could not save: browser storage may be full or unavailable. Download the file instead.')}}
+  async function saveLibrary(){if(!state.workingImage)return toast('Choose a photo first.');try{const blob=await exportBlob();const db=await openDB();const item={name:safeName(state.files[state.active].name),blob,createdAt:new Date().toISOString(),width:Math.round(state.workingImage.naturalWidth*Number($('scale').value)),height:Math.round(state.workingImage.naturalHeight*Number($('scale').value)),settings:{...settings}};await new Promise((res,rej)=>{const tx=db.transaction('photos','readwrite');tx.objectStore('photos').add(item);tx.oncomplete=res;tx.onerror=()=>rej(tx.error)});db.close();await renderLibrary();toast('Edited copy saved on this device.')}catch(e){toast('Could not save: browser storage may be full or unavailable. Download the file instead.')}}
   $('saveLocalBtn').onclick=saveLibrary;
   async function getLibrary(){const db=await openDB();const items=await new Promise((res,rej)=>{const tx=db.transaction('photos','readonly'),r=tx.objectStore('photos').getAll();r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});db.close();return items.sort((a,b)=>b.id-a.id)}
   async function renderLibrary(){try{state.library=await getLibrary()}catch{state.library=[]}$('libraryCount').textContent=state.library.length;$('libraryGrid').innerHTML='';$('libraryEmpty').hidden=state.library.length>0;for(const item of state.library){const card=document.createElement('article');card.className='library-card';const img=document.createElement('img');img.src=URL.createObjectURL(item.blob);img.alt=item.name;const title=document.createElement('strong');title.textContent=item.name;const meta=document.createElement('small');meta.textContent=`${item.width} × ${item.height} · ${new Date(item.createdAt).toLocaleDateString()}`;const btn=document.createElement('button');btn.className='btn btn-quiet';btn.textContent='Download copy';btn.onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(item.blob);a.download=safeName(item.name.replace(/\.[^.]+$/,''))+'-edited.jpg';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000)};card.append(img,title,meta,btn);$('libraryGrid').append(card)}}
@@ -37,36 +37,52 @@
   document.querySelectorAll('.nav').forEach(btn=>btn.onclick=async()=>{document.querySelectorAll('.nav').forEach(b=>b.classList.toggle('active',b===btn));const lib=btn.dataset.tab==='library';$('editorView').hidden=lib;$('libraryView').hidden=!lib;$('pageTitle').textContent=lib?'Local library':'Photo editor';if(lib)await renderLibrary()});
   function renderThumbs(){$('thumbs').innerHTML='';state.files.forEach((item,i)=>{const b=document.createElement('button');b.className='thumb'+(i===state.active?' selected':'');b.onclick=()=>selectPhoto(i);const im=document.createElement('img');im.src=item.url;im.alt='';const s=document.createElement('span');s.textContent=item.name;b.append(im,s);$('thumbs').append(b)})}
 
-  // Replicate-powered AI denoising is handled by a server endpoint so the API token is never exposed in the browser.
-  $('denoiseBtn').onclick = async () => {
-    if (!state.original || state.active < 0) return toast('Choose a photo first.');
-    const btn = $('denoiseBtn'), status = $('aiStatus');
-    btn.disabled = true; btn.textContent = 'Processing…'; status.textContent = 'Preparing a copy and sending it for AI noise reduction…';
+  // AI tools use protected Vercel endpoints; originals remain separate from the working edit.
+  async function runAI(operation) {
+    if (!state.workingImage || state.active < 0) return toast('Choose a photo first.');
+    const btn = operation === 'upscale' ? $('upscaleAiBtn') : $('denoiseBtn');
+    btn.dataset.operation = operation;
+    const status = $('aiStatus');
+    btn.disabled = true; btn.textContent = 'Processing…'; status.textContent = 'Preparing a copy for AI processing…';
     try {
-      const item = state.files[state.active];
-      const sourceCanvas = document.createElement('canvas');
-      sourceCanvas.width = state.original.naturalWidth; sourceCanvas.height = state.original.naturalHeight;
-      sourceCanvas.getContext('2d').drawImage(state.original, 0, 0);
+      const item = state.files[state.active], sourceCanvas = document.createElement('canvas');
+      sourceCanvas.width = state.workingImage.naturalWidth; sourceCanvas.height = state.workingImage.naturalHeight;
+      sourceCanvas.getContext('2d').drawImage(state.workingImage, 0, 0);
       const sourceBlob = await new Promise((resolve, reject) => sourceCanvas.toBlob(b => b ? resolve(b) : reject(new Error('Could not prepare image.')), 'image/jpeg', .92));
-      if (sourceBlob.size > 4 * 1024 * 1024) throw new Error('This image is over 4 MB. Export a smaller copy first, or configure direct file uploads for larger images.');
+      if (sourceBlob.size > 4 * 1024 * 1024) throw new Error('This image is over 4 MB. Use a smaller copy for AI processing.');
       const dataUrl = await new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = reject; reader.readAsDataURL(sourceBlob); });
-      const response = await fetch('/api/replicate-denoise', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ image: dataUrl, noise: Number($('denoiseLevel').value) }) });
-      const payload = await response.json();
+      const response = await fetch('/api/replicate-denoise', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ image: dataUrl, noise: Number($('denoiseLevel').value), operation }) });
+      let payload = await response.json();
       if (!response.ok) throw new Error(payload.error || 'AI restoration failed.');
-      const resultUrl = payload.output;
-      if (!resultUrl) throw new Error('The AI model did not return an output image.');
-      const result = await loadImage(await (async()=>{const r=await fetch(resultUrl);if(!r.ok)throw new Error('Could not retrieve the restored image.');return new File([await r.blob()], safeName(item.name.replace(/\.[^.]+$/,'')+'-ai-denoised.png'), {type:'image/png'})})());
-      // Keep original separate; replace only the active edit preview with a new AI-restored working source.
-      item.aiRestored = result.img; item.aiRestoredUrl = result.url; state.original = result.img;
+      if (!payload.id) throw new Error('The AI service did not return a prediction ID.');
+      let predictionStatus = payload.status || 'starting';
+      for (let attempt = 0; attempt < 45 && predictionStatus !== 'succeeded'; attempt++) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        const check = await fetch('/api/replicate-status?id=' + encodeURIComponent(payload.id), { cache: 'no-store' });
+        payload = await check.json();
+        if (!check.ok) throw new Error(payload.error || 'Could not check AI processing status.');
+        predictionStatus = payload.status;
+        if (predictionStatus === 'failed' || predictionStatus === 'canceled') throw new Error(payload.error || 'The AI model could not process this image.');
+        status.textContent = (operation === 'upscale' ? 'AI upscaling' : 'AI denoising') + '… ' + ((attempt + 1) * 2) + 's';
+      }
+      if (predictionStatus !== 'succeeded') throw new Error('AI processing is taking too long. You can retry; your original remains unchanged.');
+      if (!payload.output) throw new Error('The AI model did not return an output image.');
+      const resultFile = await (async()=>{const r=await fetch(payload.output);if(!r.ok)throw new Error('Could not retrieve the restored image.');return new File([await r.blob()], safeName(item.name.replace(/\.[^.]+$/,'')+'-ai-restored.png'), {type:'image/png'})})();
+      const result = await loadImage(resultFile);
+      item.aiRestored = result.img; item.aiRestoredUrl = result.url; state.workingImage = result.img;
       $('originalImg').src = item.url;
       settings = defaults(); syncControls(); persistSettings(); drawEdited();
-      status.textContent = 'AI denoising complete. Compare against the original and download when satisfied.';
-      toast('AI denoising finished. Review the result before saving.');
+      status.textContent = (operation === 'upscale' ? 'AI upscaling' : 'AI denoising') + ' complete. Original preserved; review before saving.';
+      toast('AI restoration finished. Review the result before saving.');
     } catch (err) {
-      status.textContent = err.message;
-      toast(err.message);
-    } finally { btn.disabled = false; btn.textContent = '✦ Remove grain & noise'; }
-  };
+      status.textContent = err.message; toast(err.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = operation === 'upscale' ? '✦ AI upscale 2×' : '✦ Remove grain & noise';
+    }
+  }
+  $('denoiseBtn').onclick = () => runAI('denoise');
+  $('upscaleAiBtn').onclick = () => runAI('upscale');
 
   renderLibrary();
 })();
