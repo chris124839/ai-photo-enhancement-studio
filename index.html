@@ -34,6 +34,12 @@
               <label class="range-row"><span>Warmth <output id="warmthOut">0</output></span><input type="range" id="warmth" min="-25" max="25" value="0"></label>
               <label class="range-row"><span>Saturation <output id="saturationOut">0</output></span><input type="range" id="saturation" min="-35" max="35" value="0"></label>
             </div>
+            <div class="control-section ai-restoration"><div class="section-title">AI RESTORATION <span class="ai-chip">REPLICATE</span></div>
+              <p class="note">Reduce visible grain, sensor noise and JPEG artifacts with an AI restoration model. This sends the selected image to Replicate for processing when configured.</p>
+              <label class="range-row"><span>Denoise strength</span><select id="denoiseLevel"><option value="5">Light — preserve texture</option><option value="15" selected>Balanced — recommended</option><option value="25">Strong — smoother result</option></select></label>
+              <button class="btn btn-accent ai-run-btn" id="denoiseBtn">✦ Remove grain & noise</button>
+              <p class="note" id="aiStatus" aria-live="polite">AI restoration requires the Vercel API deployment and a Replicate token.</p>
+            </div>
             <div class="control-section"><div class="section-title">DETAIL & EXPORT</div>
               <label class="range-row"><span>Sharpness <output id="sharpnessOut">0</output></span><input type="range" id="sharpness" min="0" max="30" value="0"></label>
               <label class="range-row"><span>Upscale output</span><select id="scale"><option value="1">Original size (1×)</option><option value="1.5">1.5× larger</option><option value="2">2× larger</option><option value="3">3× larger</option></select></label>
