@@ -1,33 +1,26 @@
-// Vercel serverless endpoint. Keep REPLICATE_API_TOKEN in Vercel Environment Variables.
+// Create Replicate predictions without waiting inside a short-lived serverless function.
+const MODEL_VERSION = 'replicatemodel/swinir_t4:6f3a0035cfa43e83811421021d3360750250d6f527fa06f306d870721edc4447';
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   if (req.method !== 'POST') return res.status(405).json({ error: 'Use POST.' });
   if (!process.env.REPLICATE_API_TOKEN) return res.status(503).json({ error: 'AI processing is not configured. Add REPLICATE_API_TOKEN in Vercel project settings.' });
-  const { image, noise = 15 } = req.body || {};
-  if (typeof image !== 'string' || !image.startsWith('data:image/')) return res.status(400).json({ error: 'A valid image is required.' });
+  const { image, noise = 15, operation = 'denoise' } = req.body || {};
+  if (typeof image !== 'string' || !/^data:image\/(jpeg|jpg|png|webp);base64,/i.test(image)) return res.status(400).json({ error: 'A valid JPEG, PNG, or WEBP image is required.' });
   if (image.length > 5_500_000) return res.status(413).json({ error: 'Image is too large for this endpoint (limit approximately 4 MB).' });
+  if (!['denoise', 'upscale'].includes(operation)) return res.status(400).json({ error: 'Unsupported AI operation.' });
+  const task_type = operation === 'upscale' ? 'Real-World Image Super-Resolution-Large' : 'Color Image Denoising';
   const safeNoise = [5, 15, 25].includes(Number(noise)) ? Number(noise) : 15;
   try {
-    const create = await fetch('https://api.replicate.com/v1/models/jingyunliang/swinir/predictions', {
+    const response = await fetch('https://api.replicate.com/v1/predictions', {
       method: 'POST',
-      headers: { Authorization: 'Bearer ' + process.env.REPLICATE_API_TOKEN, 'Content-Type': 'application/json', Prefer: 'wait=60' },
-      body: JSON.stringify({ input: { image, task_type: 'Color Image Denoising', noise: safeNoise, jpeg: '40' } })
+      headers: { Authorization: 'Bearer ' + process.env.REPLICATE_API_TOKEN, 'Content-Type': 'application/json', Prefer: 'wait=0' },
+      body: JSON.stringify({ version: MODEL_VERSION, input: { image, task_type, noise: safeNoise, jpeg: 40, out_format: 'png', out_jpg_quality: 95 } })
     });
-    const prediction = await create.json();
-    if (!create.ok) return res.status(create.status).json({ error: prediction.detail || prediction.title || 'Replicate rejected the request.' });
-    let current = prediction;
-    for (let i = 0; i < 40 && current.status !== 'succeeded' && current.status !== 'failed' && current.status !== 'canceled'; i++) {
-      if (!current.urls?.get) break;
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      const poll = await fetch(current.urls.get, { headers: { Authorization: 'Bearer ' + process.env.REPLICATE_API_TOKEN } });
-      current = await poll.json();
-    }
-    if (current.status !== 'succeeded') return res.status(502).json({ error: current.error || 'The AI model did not finish in time. Please try again.' });
-    const output = Array.isArray(current.output) ? current.output[0] : current.output;
-    const url = typeof output === 'string' ? output : output?.url;
-    if (!url) return res.status(502).json({ error: 'Replicate returned no output image.' });
-    return res.status(200).json({ output: url, model: 'jingyunliang/swinir', task: 'Color Image Denoising' });
-  } catch (error) {
-    return res.status(500).json({ error: 'AI processing failed. Check the Vercel function logs.' });
+    const prediction = await response.json();
+    if (!response.ok) return res.status(response.status).json({ error: prediction.detail || prediction.title || prediction.error || 'Replicate rejected the request.' });
+    if (!prediction.id) return res.status(502).json({ error: 'Replicate did not return a prediction ID.' });
+    return res.status(202).json({ id: prediction.id, status: prediction.status || 'starting', task_type });
+  } catch {
+    return res.status(502).json({ error: 'Could not reach Replicate. Please try again.' });
   }
 }
