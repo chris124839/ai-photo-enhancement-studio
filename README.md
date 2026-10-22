@@ -2,20 +2,20 @@
 
 A privacy-first, static photo editing web app. The app runs in the browser and does not upload your photos to a server.
 
-## Features in this starter
+## Features
 - Multi-image session and thumbnail filmstrip
 - Side-by-side wipe comparison of original vs edited
 - Gentle image-based auto-adjustment suggestions
 - Exposure, contrast, highlights, shadows, warmth, saturation, and sharpening controls
-- High-quality browser resampling at 1×, 1.5×, 2×, or 3× output
+- High-quality browser resampling at 1×, 1.5×, 2×, or 3× output\n- Optional Replicate SwinIR AI denoising and 2× AI super-resolution through protected Vercel serverless endpoints
 - Export edited JPEG copies
 - Save copies in IndexedDB (browser/device-local storage)
 - Responsive desktop and mobile layout
 
 ## Important limitations
 - Auto adjustments are a heuristic starting point, not a trained AI image model.
-- Upscaling uses browser canvas resampling. It is not AI super-resolution and cannot reconstruct authentic detail absent from the original. For genuine AI upscaling, export the image and process it with a trusted local tool such as [Upscayl](https://github.com/upscayl/upscayl) or [Real-ESRGAN](https://github.com/xinntao/Real-ESRGAN).
-- Removing people from photos is not yet implemented. Reliable object removal needs an inpainting model or a manual mask/clone workflow; it should be added as a separate feature and reviewed before saving so backgrounds and faces are not inadvertently changed.
+- Browser upscaling uses canvas resampling. Optional AI upscale and denoise run on Replicate cloud infrastructure, not on your computer, and may incur charges.
+- Object/person removal is not implemented yet. It requires a mask-based inpainting workflow and review before saving.
 - Browser storage can be cleared by browser settings and is not a backup. Download important edits to your computer.
 - Google Fonts is loaded from an external CDN for typography. Photo processing itself is local.
 
@@ -28,7 +28,7 @@ python -m http.server 8000
 
 Then visit `http://localhost:8000`.
 
-## Publish with GitHub Pages
+## Enable AI features with Vercel\n1. Import this repository into Vercel and deploy it as a project. The `api/` folder is deployed as serverless functions.\n2. In Vercel → Project → Settings → Environment Variables, add `REPLICATE_API_TOKEN` for Production (and Preview if needed). Never put the token in `app.js` or commit it to GitHub.\n3. Redeploy after adding the variable. Open the Vercel deployment URL, not the GitHub Pages URL: GitHub Pages is static and cannot run `/api/replicate-denoise` or `/api/replicate-status`.\n4. AI tools send an image copy to Replicate for cloud processing. Manual adjustments and browser library storage remain local. The AI endpoint accepts images up to approximately 4 MB.\n\n## Publish with GitHub Pages
 1. Create a new repository named `ai-photo-enhancement-studio` on GitHub. Keep it separate from other projects.
 2. Upload `index.html`, `styles.css`, `app.js`, and `README.md` to the repository root.
 3. In **Settings → Pages**, choose **Deploy from a branch**, select `main` and `/ (root)`, and save.
