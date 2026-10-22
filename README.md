@@ -35,3 +35,13 @@ Then visit `http://localhost:8000`.
 4. Wait for the Pages deployment. The published URL will be shown under **Settings → Pages**.
 
 No API keys or secrets are required for this starter. Do not add personal photos to the public repository.
+
+
+## AI grain and noise removal (Replicate)
+This feature uses the SwinIR image-restoration model for color-image denoising. It requires a server runtime; GitHub Pages alone cannot run the private-token proxy.
+1. Import this repository into Vercel (or deploy the same repository as a Vercel project).
+2. In Vercel → Project Settings → Environment Variables, add `REPLICATE_API_TOKEN` with a token from [Replicate account settings](https://replicate.com/account/api-tokens). Never put the token in `app.js` or any public file.
+3. Redeploy the Vercel project. The UI's AI denoise button calls `/api/replicate-denoise`.
+4. Keep the GitHub Pages site for the static preview if desired; the AI button requires the Vercel deployment URL because Pages cannot run serverless functions. For production, configure the frontend to use the Vercel deployment domain or use a custom domain.
+
+The model is an AI restoration tool, not a guarantee of perfectly faithful reconstruction. Always compare output against the original, especially faces and fine details. Replicate usage may be billed per run. The current endpoint limits inline image payloads to approximately 4 MB.
