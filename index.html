@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#111310"><title>Stillroom — Photo Studio</title><link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar">
+    <a class="brand" href="#"><span class="brand-mark">s</span><span>stillroom<small>PHOTO STUDIO</small></span></a>
+    <div class="side-label">WORKSPACE</div><button class="nav active" data-tab="editor">◫ <span>Photo editor</span></button><button class="nav" data-tab="library">▦ <span>Local library</span><b id="libraryCount">0</b></button>
+    <div class="side-bottom"><div class="privacy-icon">◉</div><strong>Private by design</strong><p>Your photos stay in this browser. Nothing is uploaded to a server by this starter app.</p><span class="privacy-pill">LOCAL PROCESSING</span></div>
+  </aside>
+  <main class="main">
+    <header class="topbar"><div><div class="eyebrow">YOUR PERSONAL DARKROOM</div><h1 id="pageTitle">Photo editor</h1></div><div class="top-actions"><span class="status"><i></i> Ready to edit</span><button class="btn btn-quiet" id="openBtn">＋ Add photos</button></div></header>
+    <input id="fileInput" type="file" accept="image/*" multiple hidden>
+    <section id="editorView">
+      <div id="emptyState" class="dropzone"><div class="upload-symbol">↥</div><h2>Give your photos a little more light.</h2><p>Drop photos here or browse your device. Originals are kept separate from edits.</p><button class="btn btn-dark" id="browseBtn">Choose photos</button><small>JPG · PNG · WEBP · HEIC support depends on your browser</small></div>
+      <div id="workspace" hidden>
+        <div class="work-grid">
+          <section class="preview-panel"><div class="panel-head"><div><span class="eyebrow">CANVAS</span><h2 id="imageName">Untitled photo</h2></div><div class="preview-actions"><button class="icon-btn" id="fitBtn" title="Fit image">Fit</button><button class="icon-btn" id="resetBtn" title="Reset edits">↺ Reset</button></div></div>
+            <div class="compare-stage" id="compareStage"><div class="compare-empty">Your photo will appear here</div><img id="originalImg" alt="Original photo"><div class="after-layer" id="afterLayer"><canvas id="editedCanvas"></canvas></div><div class="compare-divider" id="compareDivider"><span>↔</span></div><span class="image-tag tag-original">ORIGINAL</span><span class="image-tag tag-edited">EDITED</span><input id="compareRange" type="range" min="0" max="100" value="50" aria-label="Compare original and edited image"></div>
+            <div class="preview-footer"><span id="dimensions">No image selected</span><span id="zoomLabel">100% · drag slider to compare</span></div>
+          </section>
+          <aside class="controls-panel"><div class="panel-head"><div><span class="eyebrow">IMAGE TUNING</span><h2>Make it feel natural</h2></div></div>
+            <div class="auto-card"><div class="auto-icon">✳</div><div class="auto-copy"><strong>Smart suggestions</strong><p>Analyze brightness and colour, then apply a gentle starting point.</p></div><button id="autoBtn" class="btn btn-accent">Auto</button></div>
+            <div class="control-section"><div class="section-title">LIGHT <button class="mini-reset" data-reset="light">Reset</button></div>
+              <label class="range-row"><span>Exposure <output id="exposureOut">0</output></span><input type="range" id="exposure" min="-50" max="50" value="0"></label>
+              <label class="range-row"><span>Contrast <output id="contrastOut">0</output></span><input type="range" id="contrast" min="-40" max="40" value="0"></label>
+              <label class="range-row"><span>Highlights <output id="highlightsOut">0</output></span><input type="range" id="highlights" min="-50" max="50" value="0"></label>
+              <label class="range-row"><span>Shadows <output id="shadowsOut">0</output></span><input type="range" id="shadows" min="-50" max="50" value="0"></label>
+            </div>
+            <div class="control-section"><div class="section-title">COLOUR <button class="mini-reset" data-reset="colour">Reset</button></div>
+              <label class="range-row"><span>Warmth <output id="warmthOut">0</output></span><input type="range" id="warmth" min="-25" max="25" value="0"></label>
+              <label class="range-row"><span>Saturation <output id="saturationOut">0</output></span><input type="range" id="saturation" min="-35" max="35" value="0"></label>
+            </div>
+            <div class="control-section"><div class="section-title">DETAIL & EXPORT</div>
+              <label class="range-row"><span>Sharpness <output id="sharpnessOut">0</output></span><input type="range" id="sharpness" min="0" max="30" value="0"></label>
+              <label class="range-row"><span>Upscale output</span><select id="scale"><option value="1">Original size (1×)</option><option value="1.5">1.5× larger</option><option value="2">2× larger</option><option value="3">3× larger</option></select></label>
+              <p class="note">Upscaling here uses high-quality browser resampling, not a generative AI model. For stronger AI super-resolution, use an optional local tool such as Upscayl after export.</p>
+            </div>
+            <div class="save-actions"><button class="btn btn-quiet" id="saveLocalBtn">▣ Save to library</button><button class="btn btn-dark" id="downloadBtn">Download edited ↗</button></div>
+          </aside>
+        </div>
+        <section class="filmstrip"><div class="filmstrip-head"><div><span class="eyebrow">SESSION</span><h3>Your photos</h3></div><button class="text-btn" id="morePhotosBtn">＋ Add more</button></div><div id="thumbs" class="thumbs"></div></section>
+      </div>
+    </section>
+    <section id="libraryView" hidden><div class="library-intro"><div><span class="eyebrow">SAVED ON THIS DEVICE</span><h2>Your local library</h2><p>Saved versions live in this browser on this device. They are not synced between devices.</p></div><button class="btn btn-quiet" id="clearLibraryBtn">Clear library</button></div><div id="libraryGrid" class="library-grid"></div><div id="libraryEmpty" class="library-empty">No saved edits yet. Open a photo and choose <b>Save to library</b>.</div></section>
+    <footer><span>STILLROOM <b>·</b> A quiet space for better photographs</span><span>Originals stay original. Always.</span></footer>
+  </main>
+</div><div id="toast" role="status" aria-live="polite"></div><script src="app.js"></script>
+</body></html>
